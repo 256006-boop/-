@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学生向け課題・締切管理システム</title>
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ── サイドバー ── -->
+  <aside>
+    <div class="brand">
+      <i class="fa-solid fa-graduation-cap fa-lg"></i>
+      <span>課題マネージャー</span>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">ビュー</div>
+      <a class="nav-item active" onclick="filterByNav('all', this)">
+        <span><i class="fa-solid fa-calendar-days" style="margin-right:8px;"></i>近日予定</span>
+        <span class="count" id="count-all">0</span>
+      </a>
+      <a class="nav-item" onclick="filterByNav('today', this)">
+        <span><i class="fa-solid fa-sun" style="margin-right:8px;"></i>今日締切</span>
+        <span class="count" id="count-today">0</span>
+      </a>
+      <a class="nav-item" onclick="filterByNav('completed', this)">
+        <span><i class="fa-solid fa-circle-check" style="margin-right:8px;"></i>完了済み</span>
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>履修授業（科目）</span>
+        <button class="add-subject-btn" onclick="openSubjectModal()" title="授業を追加">
+          <i class="fa-solid fa-plus"></i> 追加
+        </button>
+      </div>
+      <div id="subject-list"></div>
+    </div>
+  </aside>
+
+  <!-- ── メイン表示エリア ── -->
+  <main>
+    <header>
+      <div class="header-title">
+        <h1 id="view-title">近日予定</h1>
+      </div>
+      <div class="header-actions">
+        <!-- 優先度フィルター -->
+        <select class="filter-select" onchange="filterByPriority(this.value)">
+          <option value="all">すべての優先度</option>
+          <option value="high">優先度: 高 (赤)</option>
+          <option value="mid">優先度: 中 (黄)</option>
+          <option value="low">優先度: 低 (青)</option>
+        </select>
+
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="search-input" placeholder="課題名で検索..." oninput="renderTasks()">
+        </div>
+        <button class="btn-primary" onclick="openModal()">
+          <i class="fa-solid fa-plus"></i> 課題を追加
+        </button>
+      </div>
+    </header>
+
+    <div class="content-body">
+      <div class="upcoming-wrapper">
+        <!-- 横スライドカレンダーヘッダー -->
+        <div class="calendar-header-strip">
+          <div class="cal-top-bar">
+            <!-- ① 年月クリック・下矢印でピッカーポップアップを開く -->
+            <div class="cal-month-title-wrapper">
+              <div class="cal-month-title" onclick="toggleDatePickerPopover(event)">
+                <span id="cal-month-text">2026年 10月</span> <i class="fa-solid fa-chevron-down fa-xs"></i>
+              </div>
+              <!-- ミニカレンダーポップオーバー -->
+              <div class="date-picker-popover" id="date-picker-popover">
+                <input type="date" id="cal-date-picker" onchange="onDatePickerChange(this.value)">
+              </div>
+            </div>
+
+            <div class="cal-nav-btns">
+              <!-- 前へ・今日・次へ -->
+              <button class="btn-nav" onclick="shiftCalendar(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+              <button class="btn-today" onclick="goToToday()">今日</button>
+              <button class="btn-nav" onclick="shiftCalendar(1)"><i class="fa-solid fa-chevron-right"></i></button>
+              
+              <!-- ② 週/月/年 切り替え用ドロップダウン -->
+              <select class="view-mode-select" id="view-mode-select" onchange="changeViewMode(this.value)">
+                <option value="week" selected>週</option>
+                <option value="month">月</option>
+                <option value="year">年</option>
+              </select>
+            </div>
+          </div>
+          <div class="date-strip" id="date-strip"></div>
+        </div>
+
+        <!-- 課題タイムライン -->
+        <div class="timeline-container" id="timeline"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ── 課題追加・編集モーダル ── -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-title">新しい課題を追加</h3>
+        <i class="fa-solid fa-xmark" style="cursor:pointer;" onclick="closeModal()"></i>
+      </div>
+      <form id="task-form" onsubmit="saveTask(event)">
+        <input type="hidden" id="task-id">
+        <div class="form-group">
+          <label>課題名 <span style="color:red">*</span></label>
+          <input type="text" id="task-title" class="form-control" placeholder="例: Webアプリケーション作成課題" required>
+        </div>
+        <div class="form-group">
+          <label>授業名（科目） <span style="color:red">*</span></label>
+          <select id="task-subject" class="form-control" required></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1;">
+            <label>提出期限（日付） <span style="color:red">*</span></label>
+            <input type="date" id="task-date" class="form-control" required>
+          </div>
+          <div class="form-group" style="flex:1;">
+            <label>提出時刻</label>
+            <input type="time" id="task-time" class="form-control" value="23:59">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>優先度</label>
+          <select id="task-prio" class="form-control">
+            <option value="high">高 (赤)</option>
+            <option value="mid" selected>中 (黄)</option>
+            <option value="low">低 (青)</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="btn-delete" class="btn-danger" style="display:none;" onclick="deleteTaskFromModal()">削除する</button>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn-secondary" onclick="closeModal()">キャンセル</button>
+            <button type="submit" class="btn-primary">保存する</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── 授業追加モーダル ── -->
+  <div class="modal-overlay" id="subject-modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>履修授業（科目）を追加</h3>
+        <i class="fa-solid fa-xmark" style="cursor:pointer;" onclick="closeSubjectModal()"></i>
+      </div>
+      <form id="subject-form" onsubmit="saveSubject(event)">
+        <div class="form-group">
+          <label>授業名（科目名） <span style="color:red">*</span></label>
+          <input type="text" id="subject-name" class="form-control" placeholder="例: Webシステム開発" required>
+        </div>
+        <div class="form-group">
+          <label>タグカラー</label>
+          <input type="color" id="subject-color" class="form-control" value="#4f46e5" style="height: 40px; padding: 2px;">
+        </div>
+        <div class="modal-footer" style="justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn-secondary" onclick="closeSubjectModal()">キャンセル</button>
+          <button type="submit" class="btn-primary">追加する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- トースト通知 -->
+  <div class="toast" id="toast">
+    <i class="fa-solid fa-circle-check"></i> <span id="toast-message"></span>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
